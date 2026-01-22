@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estado de Criptos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 15px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 18px;
+            padding: 40px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .grid {
+                grid-template-columns: 2fr 1fr;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .grid {
+                grid-template-columns: 2fr 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h2 {
+            font-size: 18px;
+            color: #667eea;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .card h3 {
+            font-size: 16px;
+            color: #764ba2;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+
+        .card h3:first-child {
+            margin-top: 0;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+
+        .summary-row:last-child {
+            border-bottom: none;
+        }
+
+        .summary-row.subtotal {
+            font-weight: 600;
+            padding: 10px 0;
+            background: #f5f5f5;
+            padding-left: 10px;
+            padding-right: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+
+        .summary-row.total {
+            font-weight: 700;
+            padding: 12px 0;
+            background: #667eea;
+            color: white;
+            padding-left: 10px;
+            padding-right: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+        }
+
+        .label {
+            flex: 1;
+            text-align: left;
+        }
+
+        .value {
+            text-align: right;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-weight: 500;
+        }
+
+        .amount-col {
+            flex: 0.8;
+            text-align: right;
+        }
+
+        .eur-col {
+            flex: 0.9;
+            text-align: right;
+        }
+
+        .usd-col {
+            flex: 0.9;
+            text-align: right;
+        }
+
+        .wallet-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .wallet-section h3 {
+            margin-top: 0;
+            color: #667eea;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .table-header {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr 1fr 1fr;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #667eea;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #667eea;
+            margin-bottom: 8px;
+        }
+
+        .table-row {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr 1fr 1fr;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+
+        .table-row.subtotal {
+            background: #f0f0f0;
+            font-weight: 600;
+            padding: 8px 0;
+            margin: 5px 0;
+        }
+
+        .crypto-name {
+            font-weight: 500;
+        }
+
+        .crypto-address {
+            font-size: 10px;
+            color: #999;
+            font-family: 'Monaco', 'Courier New', monospace;
+            margin-top: 3px;
+            word-break: break-all;
+            line-height: 1.3;
+        }
+
+        .number {
+            text-align: right;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c62828;
+        }
+
+        .currency-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .currency-toggle button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: white;
+            color: #667eea;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .currency-toggle button.active {
+            background: #667eea;
+            color: white;
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 22px;
+            }
+
+            .card {
+                padding: 15px;
+            }
+
+            .card h2 {
+                font-size: 16px;
+            }
+
+            .table-header, .table-row {
+                grid-template-columns: 1fr 0.6fr 0.8fr;
+                gap: 8px;
+                font-size: 11px;
+            }
+
+            .table-header {
+                grid-template-columns: 1fr 0.6fr 0.8fr;
+            }
+
+            .table-row {
+                grid-template-columns: 1fr 0.6fr 0.8fr;
+            }
+
+            .currency-col-desktop {
+                display: none;
+            }
+
+            .summary-row {
+                font-size: 13px;
+            }
+
+            .summary-row.subtotal, .summary-row.total {
+                font-size: 13px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .last-update {
+            text-align: center;
+            color: white;
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 20px;
+        }
+
+        .hardcoded-badge {
+            display: inline-block;
+            background: #ff9800;
+            color: white;
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 5px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .amount-with-tooltip {
+            position: relative;
+            cursor: help;
+            border-bottom: 1px dotted #667eea;
+        }
+
+        .amount-with-tooltip:hover::after {
+            content: attr(data-address);
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 9px;
+            white-space: nowrap;
+            z-index: 1000;
+            pointer-events: none;
+            font-family: 'Monaco', 'Courier New', monospace;
+            border: 1px solid #667eea;
+        }
+
+        .amount-with-tooltip:hover::before {
+            content: '';
+            position: absolute;
+            bottom: 115%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #333;
+            z-index: 1000;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 Estado de Criptos</h1>
+            <p>Resumen de tus wallets BTC, ETH y SOL</p>
+        </div>
+
+        <div class="currency-toggle">
+            <button class="active" onclick="toggleCurrency('both')">EUR & USD</button>
+            <button onclick="toggleCurrency('eur')">Solo EUR</button>
+            <button onclick="toggleCurrency('usd')">Solo USD</button>
+        </div>
+
+        <div id="loading" class="loading">Cargando precios de criptomonedas y saldos de wallets...</div>
+        <div id="error" class="error hidden"></div>
+
+        <div id="content" class="hidden">
+            <div class="grid">
+                <div class="card">
+                    <h2>📊 Detalle por Wallet</h2>
+                    <div id="walletDetails"></div>
+                </div>
+
+                <div class="card">
+                    <h2>💹 Resumen por Criptomoneda</h2>
+                    <div id="cryptoSummary"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>📈 Totales Generales</h2>
+                <div id="totalsSummary"></div>
+            </div>
+        </div>
+
+        <div class="last-update">
+            <p id="updateTime"></p>
+        </div>
+    </div>
+
+    <script>
+        // Direcciones hardcodeadas de wallets
+        // Puedes agregar 'hardcodedAmount' a cualquier wallet para usar ese saldo en lugar de consultarlo
+        const walletAddresses = [
+            // Revolut (direcciones de ejemplo - reemplaza con las tuyas)
+            // { name: 'Revolut', crypto: 'BTC', address: '1A1z7agoat4ePCnvCCf71iP6C6iv24zaQn' },
+            { name: 'Revolut', crypto: 'ETH', address: '0x93cB28617B8D483919ed449cEF742D645Db94b94' },
+            { name: 'Revolut', crypto: 'SOL', address: 'BGbT8ehYdbWzJM3fhbQ9Vz2YDMQFADXkGnHfVvK4vW8X', hardcodedAmount: 13.527609 },
+            // Ledger (xpub para BTC, direcciones para ETH y SOL)
+            { name: 'Ledger', crypto: 'BTC', address: 'xpub6DBRJKufGnzn7fBKsrKh7pmSicx2CdYQQFT8xYmeVuC3Uxfs82kRe2hM54vJiPjmXzomJ3ESwxdLEhUXw1KUKugi2RwA2kkhJSby248SPDZ', hardcodedAmount: 0.140438 },
+            { name: 'Ledger', crypto: 'ETH', address: '0x7166647e783864F5B6E0e0882dC1E94d17149216' },
+            { name: 'Ledger', crypto: 'SOL', address: 'DisUqrVZx8zLSnNeUcCkmFXPvBkcvjyXBsP4YLoMAHgb' }
+        ];
+
+        let wallets = [];
+        let prices = {};
+        let currentCurrency = 'both';
+
+        // IDs de CoinGecko para las criptomonedas
+        const cryptoIds = {
+            'BTC': 'bitcoin',
+            'ETH': 'ethereum',
+            'SOL': 'solana'
+        };
+
+        // Unidades mínimas para convertir a unidades principales
+        const cryptoDecimals = {
+            'BTC': 100000000,      // Satoshi
+            'ETH': 1000000000000000000,  // Wei
+            'SOL': 1000000000      // Lamports
+        };
+
+        async function fetchBalances() {
+            document.getElementById('loading').textContent = 'Cargando balances de las wallets...';
+            
+            try {
+                const balancePromises = walletAddresses.map(wallet => 
+                    fetchBalance(wallet.crypto, wallet.address, wallet.name, wallet.hardcodedAmount)
+                );
+                
+                wallets = await Promise.all(balancePromises);
+                
+                await fetchPrices();
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        async function fetchBalance(crypto, address, walletName, hardcodedAmount) {
+            try {
+                let amount = 0;
+                let isHardcoded = false;
+
+                // Si hay un saldo hardcodeado, usarlo en lugar de consultarlo
+                if (hardcodedAmount !== undefined) {
+                    amount = hardcodedAmount;
+                    isHardcoded = true;
+                } else if (crypto === 'BTC') {
+                    amount = await fetchBTCBalance(address);
+                } else if (crypto === 'ETH') {
+                    amount = await fetchETHBalance(address);
+                } else if (crypto === 'SOL') {
+                    amount = await fetchSOLBalance(address);
+                }
+
+                return { name: walletName, crypto, address, amount, isHardcoded };
+            } catch (error) {
+                console.error(`Error fetching ${crypto} balance for ${address}:`, error);
+                return { name: walletName, crypto, address, amount: 0, error: true };
+            }
+        }
+
+        async function fetchBTCBalance(address) {
+            try {
+                // Detectar si es xpub o dirección
+                if (address.startsWith('xpub') || address.startsWith('ypub') || address.startsWith('zpub')) {
+                    return await fetchBTCBalanceFromXpub(address);
+                } else {
+                    const response = await fetch(`https://blockstream.info/api/address/${address}`);
+                    if (!response.ok) throw new Error('No se pudo obtener el balance de BTC');
+                    
+                    const data = await response.json();
+                    const totalBalance = (data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum) / 100000000;
+                    return totalBalance;
+                }
+            } catch (error) {
+                console.error('Error fetching BTC balance:', error);
+                return 0;
+            }
+        }
+
+        async function fetchBTCBalanceFromXpub(xpub) {
+            try {
+                console.log('Fetching BTC balance for xpub:', xpub);
+                
+                // Usar la API de blockchain.com (v4) con redirect: follow
+                try {
+                    const response = await fetch(`https://api.blockchain.com/v4/blockchain/xpub/${xpub}?context=bitcoin`, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0'
+                        },
+                        redirect: 'follow'
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('Blockchain.com API response:', data);
+                        // final_balance está en satoshis
+                        const balanceInSatoshis = data.final_balance || 0;
+                        const totalBalance = balanceInSatoshis / 100000000;
+                        console.log('Balance from blockchain.com:', totalBalance);
+                        return totalBalance;
+                    } else {
+                        console.log('Blockchain.com API returned status:', response.status);
+                    }
+                } catch (e) {
+                    console.log('blockchain.com v4 API failed:', e);
+                }
+                
+                console.warn('No se pudo obtener el balance de la xpub. Prueba con una dirección BTC específica en su lugar.');
+                return 0;
+            } catch (error) {
+                console.error('Error fetching BTC balance from xpub:', error);
+                return 0;
+            }
+        }
+
+        async function fetchETHBalance(address) {
+            try {
+                const response = await fetch(
+                    `https://eth.blockscout.com/api/v2/addresses/${address}`
+                );
+                if (!response.ok) throw new Error('No se pudo obtener el balance de ETH');
+                
+                const data = await response.json();
+                const balance = parseFloat(data.coin_balance || 0) / 1e18;
+                return balance;
+            } catch (error) {
+                console.error('Error fetching ETH balance:', error);
+                return 0;
+            }
+        }
+
+        // Helius API Key para Solana
+        const HELIUS_API_KEY = '1f54e047-3261-4d3a-8143-1a09073585a3';
+
+        async function fetchSOLBalance(address) {
+            try {
+                // Usar Helius RPC que tiene CORS habilitado
+                const response = await fetch(`https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        id: 1,
+                        method: 'getBalance',
+                        params: [address]
+                    })
+                });
+                
+                if (!response.ok) throw new Error('No se pudo obtener el balance de SOL');
+                
+                const data = await response.json();
+                if (data.error) throw new Error(data.error.message);
+                
+                const balance = (data.result.value || 0) / 1000000000;
+                console.log('SOL balance from Helius:', balance);
+                return balance;
+            } catch (error) {
+                console.error('Error fetching SOL balance:', error);
+                return 0;
+            }
+        }
+
+        async function fetchPrices() {
+            try {
+                const ids = Object.values(cryptoIds).join(',');
+                const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=eur,usd`);
+                
+                if (!response.ok) {
+                    throw new Error('No se pudieron cargar los precios');
+                }
+
+                const data = await response.json();
+                
+                prices = {
+                    'BTC': { eur: data.bitcoin.eur, usd: data.bitcoin.usd },
+                    'ETH': { eur: data.ethereum.eur, usd: data.ethereum.usd },
+                    'SOL': { eur: data.solana.eur, usd: data.solana.usd }
+                };
+
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('content').classList.remove('hidden');
+                updateTime();
+                renderContent();
+            } catch (error) {
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('error').classList.remove('hidden');
+                document.getElementById('error').textContent = 'Error: ' + error.message;
+                console.error('Error:', error);
+            }
+        }
+
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('updateTime').textContent = `Actualizado: ${now.toLocaleString('es-ES')}`;
+        }
+
+        function formatCurrency(value, currency) {
+            const formatter = new Intl.NumberFormat('es-ES', {
+                style: 'currency',
+                currency: currency,
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+                useGrouping: true
+            });
+            return formatter.format(value);
+        }
+
+        function formatCrypto(value) {
+            const formatted = value.toFixed(8).replace(/\.?0+$/, '');
+            // Separar miles con puntos
+            const parts = formatted.split('.');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            return parts.join('.');
+        }
+
+        function renderContent() {
+            renderWalletDetails();
+            renderCryptoSummary();
+            renderTotalsSummary();
+        }
+
+        function renderWalletDetails() {
+            const walletTypes = ['Revolut', 'Ledger'];
+            let html = '';
+
+            walletTypes.forEach(walletType => {
+                const walletCryptos = wallets.filter(w => w.name === walletType);
+                html += `<div class="wallet-section">
+                    <h3>${walletType}</h3>
+                    <div class="table-header">
+                        <div>Criptomoneda</div>
+                        <div class="number">Cantidad</div>
+                        <div class="number ${currentCurrency === 'usd' ? 'hidden' : ''}">Valor EUR</div>
+                        <div class="number ${currentCurrency === 'eur' ? 'hidden' : ''}">Valor USD</div>
+                    </div>`;
+
+                let walletTotalEur = 0;
+                let walletTotalUsd = 0;
+
+                walletCryptos.forEach(wallet => {
+                    const valueEur = wallet.amount * prices[wallet.crypto].eur;
+                    const valueUsd = wallet.amount * prices[wallet.crypto].usd;
+                    walletTotalEur += valueEur;
+                    walletTotalUsd += valueUsd;
+
+                    const hardcodedBadge = wallet.isHardcoded ? `<span class="hardcoded-badge">Hardcoded</span>` : '';
+                    const amountAttr = `data-address="${wallet.address}"`;
+
+                    html += `<div class="table-row">
+                        <div>
+                            <div class="crypto-name">${wallet.crypto}${hardcodedBadge}</div>
+                        </div>
+                        <div class="number amount-with-tooltip" ${amountAttr}>${formatCrypto(wallet.amount)}</div>
+                        <div class="number ${currentCurrency === 'usd' ? 'hidden' : ''}">${formatCurrency(valueEur, 'EUR')}</div>
+                        <div class="number ${currentCurrency === 'eur' ? 'hidden' : ''}">${formatCurrency(valueUsd, 'USD')}</div>
+                    </div>`;
+                });
+
+                html += `<div class="table-row subtotal">
+                    <div>Total ${walletType}</div>
+                    <div class="number">-</div>
+                    <div class="number ${currentCurrency === 'usd' ? 'hidden' : ''}">${formatCurrency(walletTotalEur, 'EUR')}</div>
+                    <div class="number ${currentCurrency === 'eur' ? 'hidden' : ''}">${formatCurrency(walletTotalUsd, 'USD')}</div>
+                </div></div>`;
+            });
+
+            document.getElementById('walletDetails').innerHTML = html;
+        }
+
+        function renderCryptoSummary() {
+            const cryptoTypes = ['BTC', 'ETH', 'SOL'];
+            let html = '';
+
+            cryptoTypes.forEach(cryptoType => {
+                const cryptoWallets = wallets.filter(w => w.crypto === cryptoType);
+                let totalAmount = 0;
+                let totalValueEur = 0;
+                let totalValueUsd = 0;
+
+                cryptoWallets.forEach(wallet => {
+                    totalAmount += wallet.amount;
+                    totalValueEur += wallet.amount * prices[cryptoType].eur;
+                    totalValueUsd += wallet.amount * prices[cryptoType].usd;
+                });
+
+                html += `<div>
+                    <h3>${cryptoType}</h3>
+                    <div class="summary-row">
+                        <span class="label">Cantidad total:</span>
+                        <span class="value">${formatCrypto(totalAmount)} ${cryptoType}</span>
+                    </div>
+                    <div class="summary-row ${currentCurrency === 'usd' ? 'hidden' : ''}">
+                        <span class="label">Valor en EUR:</span>
+                        <span class="value">${formatCurrency(totalValueEur, 'EUR')}</span>
+                    </div>
+                    <div class="summary-row ${currentCurrency === 'eur' ? 'hidden' : ''}">
+                        <span class="label">Valor en USD:</span>
+                        <span class="value">${formatCurrency(totalValueUsd, 'USD')}</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="label">Precio unitario EUR:</span>
+                        <span class="value">${formatCurrency(prices[cryptoType].eur, 'EUR')}</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="label">Precio unitario USD:</span>
+                        <span class="value">${formatCurrency(prices[cryptoType].usd, 'USD')}</span>
+                    </div>
+                </div>`;
+            });
+
+            document.getElementById('cryptoSummary').innerHTML = html;
+        }
+
+        function renderTotalsSummary() {
+            let totalEur = 0;
+            let totalUsd = 0;
+
+            wallets.forEach(wallet => {
+                totalEur += wallet.amount * prices[wallet.crypto].eur;
+                totalUsd += wallet.amount * prices[wallet.crypto].usd;
+            });
+
+            const html = `
+                <div class="summary-row">
+                    <span class="label">Total Revolut:</span>
+                    <span class="value" style="display: flex; gap: 15px;">
+                        <span class="${currentCurrency === 'usd' ? 'hidden' : ''}">${formatCurrency(calculateWalletTotal('Revolut', 'eur'), 'EUR')}</span>
+                        <span class="${currentCurrency === 'eur' ? 'hidden' : ''}">${formatCurrency(calculateWalletTotal('Revolut', 'usd'), 'USD')}</span>
+                    </span>
+                </div>
+                <div class="summary-row">
+                    <span class="label">Total Ledger:</span>
+                    <span class="value" style="display: flex; gap: 15px;">
+                        <span class="${currentCurrency === 'usd' ? 'hidden' : ''}">${formatCurrency(calculateWalletTotal('Ledger', 'eur'), 'EUR')}</span>
+                        <span class="${currentCurrency === 'eur' ? 'hidden' : ''}">${formatCurrency(calculateWalletTotal('Ledger', 'usd'), 'USD')}</span>
+                    </span>
+                </div>
+                <div class="summary-row subtotal">
+                    <span class="label">TOTAL GENERAL:</span>
+                    <span class="value" style="display: flex; gap: 15px; font-size: 16px;">
+                        <span class="${currentCurrency === 'usd' ? 'hidden' : ''}">${formatCurrency(totalEur, 'EUR')}</span>
+                        <span class="${currentCurrency === 'eur' ? 'hidden' : ''}">${formatCurrency(totalUsd, 'USD')}</span>
+                    </span>
+                </div>
+            `;
+
+            document.getElementById('totalsSummary').innerHTML = html;
+        }
+
+        function calculateWalletTotal(walletName, currency) {
+            return wallets
+                .filter(w => w.name === walletName)
+                .reduce((sum, wallet) => {
+                    return sum + (wallet.amount * prices[wallet.crypto][currency]);
+                }, 0);
+        }
+
+        function toggleCurrency(type) {
+            currentCurrency = type;
+            
+            // Actualizar botones
+            document.querySelectorAll('.currency-toggle button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Re-renderizar contenido
+            renderContent();
+        }
+
+        // Inicializar
+        fetchBalances();
+    </script>
+</body>
+</html>
