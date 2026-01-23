@@ -343,6 +343,43 @@
             border: 1px solid #667eea;
         }
 
+        .ens-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .ens-item {
+            padding: 15px;
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .ens-item .wallet-label {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .ens-item .address {
+            font-size: 11px;
+            color: #999;
+            word-break: break-all;
+            margin-bottom: 10px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .ens-item .ens-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: #333;
+            padding-top: 8px;
+            border-top: 1px solid #e0e0e0;
+        }
         .amount-with-tooltip:hover::before {
             content: '';
             position: absolute;
@@ -389,6 +426,10 @@
                     <div id="cryptoSummary"></div>
                 </div>
             </div>
+
+            <div class="card" style="margin-top: 30px;">
+                <div id="ensNames"></div>
+            </div>
         </div>
 
         <div class="last-update">
@@ -407,7 +448,9 @@
             // Ledger (xpub para BTC, direcciones para ETH y SOL)
             { name: 'Ledger', crypto: 'BTC', address: 'xpub6DBRJKufGnzn7fBKsrKh7pmSicx2CdYQQFT8xYmeVuC3Uxfs82kRe2hM54vJiPjmXzomJ3ESwxdLEhUXw1KUKugi2RwA2kkhJSby248SPDZ', hardcodedAmount: 0.140438 },
             { name: 'Ledger', crypto: 'ETH', address: '0x7166647e783864F5B6E0e0882dC1E94d17149216' },
-            { name: 'Ledger', crypto: 'SOL', address: 'DisUqrVZx8zLSnNeUcCkmFXPvBkcvjyXBsP4YLoMAHgb' }
+            { name: 'Ledger', crypto: 'SOL', address: 'DisUqrVZx8zLSnNeUcCkmFXPvBkcvjyXBsP4YLoMAHgb' },
+            // Metamask
+            { name: 'Metamask', crypto: 'ETH', address: '0xa6510317F98d6A9C3Eb0d5fc825Ee2F02E2f47e1' }
         ];
 
         let wallets = [];
@@ -645,14 +688,63 @@
             return formatter.format(Math.floor(value));
         }
 
+        async function resolveENS(address) {
+            try {
+                // Primer intento: ensideas (rápido y sin API key)
+                const primary = await fetch(`https://api.ensideas.com/ens/resolve/${address}`);
+                if (primary.ok) {
+                    const data = await primary.json();
+                    if (data.name) return data.name;
+                }
+
+                // Respaldo: ens.vision
+                const fallback = await fetch(`https://api.ens.vision/reverse/${address}`);
+                if (fallback.ok) {
+                    const data = await fallback.json();
+                    if (data.name) return data.name;
+                }
+
+                return null;
+            } catch (error) {
+                console.error(`Error resolving ENS for ${address}:`, error);
+                return null;
+            }
+        }
+
         function renderContent() {
             renderWalletDetails();
             renderCryptoSummary();
             renderTotalsSummary();
+            renderENS();
+        }
+
+        async function renderENS() {
+            const ethWallets = wallets.filter(w => w.crypto === 'ETH');
+            let html = '<h2>Nombres ENS</h2>';
+            
+            if (ethWallets.length === 0) {
+                html += '<p>No hay wallets de ETH configuradas.</p>';
+                document.getElementById('ensNames').innerHTML = html;
+                return;
+            }
+
+            html += '<div class="ens-container">';
+            
+            for (const wallet of ethWallets) {
+                const ensName = await resolveENS(wallet.address);
+                html += `<div class="ens-item">
+                    <div class="wallet-label">${wallet.name}</div>
+                    <div class="address">${wallet.address}</div>
+                    <div class="ens-name">${ensName ? ensName : 'Sin ENS'}</div>
+                </div>`;
+            }
+
+            html += '</div>';
+            document.getElementById('ensNames').innerHTML = html;
         }
 
         function renderWalletDetails() {
-            const walletTypes = ['Revolut', 'Ledger'];
+            const walletTypes = ['Revolut', 'Ledger', 'Metamask'];
             let html = '';
 
             walletTypes.forEach(walletType => {
@@ -752,7 +844,7 @@
                 totalUsd += wallet.amount * prices[wallet.crypto].usd;
             });
 
-            const walletTypes = ['Revolut', 'Ledger'];
+            const walletTypes = ['Revolut', 'Ledger', 'Metamask'];
             const cryptoTypes = ['BTC', 'ETH', 'SOL'];
             
             // Crear matriz de valores
