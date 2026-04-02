@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Estado de Criptos</title>
+    <script src="crypto-bundle.js"></script>
     <style>
         * {
             margin: 0;
@@ -446,7 +447,7 @@
             { name: 'Revolut', crypto: 'ETH', address: '0x93cB28617B8D483919ed449cEF742D645Db94b94' },
             { name: 'Revolut', crypto: 'SOL', address: 'BGbT8ehYdbWzJM3fhbQ9Vz2YDMQFADXkGnHfVvK4vW8X', hardcodedAmount: 13.527609 },
             // Ledger (xpub para BTC, direcciones para ETH y SOL)
-            { name: 'Ledger', crypto: 'BTC', address: 'xpub6DBRJKufGnzn7fBKsrKh7pmSicx2CdYQQFT8xYmeVuC3Uxfs82kRe2hM54vJiPjmXzomJ3ESwxdLEhUXw1KUKugi2RwA2kkhJSby248SPDZ', hardcodedAmount: 0.140438 },
+            { name: 'Ledger', crypto: 'BTC', address: 'xpub6DBRJKufGnzn7fBKsrKh7pmSicx2CdYQQFT8xYmeVuC3Uxfs82kRe2hM54vJiPjmXzomJ3ESwxdLEhUXw1KUKugi2RwA2kkhJSby248SPDZ' },
             { name: 'Ledger', crypto: 'ETH', address: '0x7166647e783864F5B6E0e0882dC1E94d17149216' },
             { name: 'Ledger', crypto: 'SOL', address: 'DisUqrVZx8zLSnNeUcCkmFXPvBkcvjyXBsP4YLoMAHgb' },
             { name: 'Ledger', crypto: 'ADA', address: 'stake1u8rhgd6ducka4u72mvg2h7qd3z4ntz83v5wd8erln3rpsrs3lwgt9' },
@@ -539,33 +540,75 @@
 
         async function fetchBTCBalanceFromXpub(xpub) {
             try {
-                console.log('Fetching BTC balance for xpub:', xpub);
-                
-                // Usar la API de blockchain.com (v4) con redirect: follow
-                try {
-                    const response = await fetch(`https://api.blockchain.com/v4/blockchain/xpub/${xpub}?context=bitcoin`, {
-                        headers: {
-                            'User-Agent': 'Mozilla/5.0'
-                        },
-                        redirect: 'follow'
-                    });
-                    if (response.ok) {
-                        const data = await response.json();
-                        console.log('Blockchain.com API response:', data);
-                        // final_balance está en satoshis
-                        const balanceInSatoshis = data.final_balance || 0;
-                        const totalBalance = balanceInSatoshis / 100000000;
-                        console.log('Balance from blockchain.com:', totalBalance);
-                        return totalBalance;
-                    } else {
-                        console.log('Blockchain.com API returned status:', response.status);
-                    }
-                } catch (e) {
-                    console.log('blockchain.com v4 API failed:', e);
+                const secp = new elliptic.ec('secp256k1');
+
+                function b58decode(s) {
+                    const A = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+                    let n = BigInt(0);
+                    for (const c of s) n = n * 58n + BigInt(A.indexOf(c));
+                    return new Uint8Array(n.toString(16).padStart(164, '0').match(/.{2}/g).map(b => parseInt(b, 16)));
                 }
-                
-                console.warn('No se pudo obtener el balance de la xpub. Prueba con una dirección BTC específica en su lugar.');
-                return 0;
+
+                async function sha256(data) {
+                    return new Uint8Array(await crypto.subtle.digest('SHA-256', data));
+                }
+
+                async function hmacSha512(key, data) {
+                    const k = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-512' }, false, ['sign']);
+                    return new Uint8Array(await crypto.subtle.sign('HMAC', k, data));
+                }
+
+                async function hash160(data) {
+                    const sha = await sha256(data);
+                    return new Uint8Array(hash.ripemd160().update(sha).digest());
+                }
+
+                async function b58check(prefix, payload) {
+                    const A = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+                    const full = new Uint8Array([prefix, ...payload]);
+                    const chk = (await sha256(await sha256(full))).slice(0, 4);
+                    const all = new Uint8Array([...full, ...chk]);
+                    let n = BigInt('0x' + Array.from(all).map(b => b.toString(16).padStart(2,'0')).join(''));
+                    let res = '';
+                    while (n > 0n) { const rem = n % 58n; n /= 58n; res = A[Number(rem)] + res; }
+                    return res;
+                }
+
+                async function deriveChild(pubkeyBytes, chaincode, index) {
+                    const indexBuf = new Uint8Array(4);
+                    new DataView(indexBuf.buffer).setUint32(0, index, false);
+                    const data = new Uint8Array([...pubkeyBytes, ...indexBuf]);
+                    const I = await hmacSha512(chaincode, data);
+                    const IL = I.slice(0, 32);
+                    const childPub = secp.keyFromPrivate(IL).getPublic().add(secp.keyFromPublic(pubkeyBytes).getPublic());
+                    return { pubkey: new Uint8Array(childPub.encodeCompressed()), chaincode: I.slice(32) };
+                }
+
+                async function getAddressBalance(address) {
+                    const res = await fetch(`https://blockstream.info/api/address/${address}`);
+                    if (!res.ok) return 0;
+                    const d = await res.json();
+                    return (d.chain_stats.funded_txo_sum - d.chain_stats.spent_txo_sum) / 1e8;
+                }
+
+                const raw = b58decode(xpub);
+                const pubkey = raw.slice(45, 78);
+                const chaincode = raw.slice(13, 45);
+
+                let total = 0;
+                // Recórrer chain 0 (receive) i chain 1 (change), fins a 20 adreces consecutives amb saldo 0
+                for (const chain of [0, 1]) {
+                    const chainNode = await deriveChild(pubkey, chaincode, chain);
+                    let gap = 0;
+                    for (let i = 0; gap < 20; i++) {
+                        const child = await deriveChild(chainNode.pubkey, chainNode.chaincode, i);
+                        const witness = new Uint8Array([0x00, 0x14, ...await hash160(child.pubkey)]);
+                        const addr = await b58check(0x05, await hash160(witness));
+                        const bal = await getAddressBalance(addr);
+                        if (bal > 0) { total += bal; gap = 0; } else { gap++; }
+                    }
+                }
+                return total;
             } catch (error) {
                 console.error('Error fetching BTC balance from xpub:', error);
                 return 0;
